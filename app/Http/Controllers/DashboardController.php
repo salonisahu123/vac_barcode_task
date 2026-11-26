@@ -387,7 +387,8 @@ class DashboardController extends Controller
         ->toArray();
 
     // 🔥 STEP 3: Get tasks with subtask grouping
-    $tasks = Task::whereIn('id', $taskIds)
+    $tasks = Task::with(['latestRemark.user'])
+    ->whereIn('id', $taskIds)
     ->whereIn('status', ['pending', 'in_progress'])
     ->orderBy('created_at', 'desc')
     ->get()

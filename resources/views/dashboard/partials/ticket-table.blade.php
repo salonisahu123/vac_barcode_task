@@ -14,7 +14,7 @@
     <th>Location</th>
     <th>Group</th>
     @if($isAdmin)
-    <th>Assigned To</th>
+    <th>Complained Employee</th>
     @endif
     <!--<th>Created By</th>-->
     <th width="100">Action</th>
@@ -106,7 +106,7 @@
     
                 @endif
             @empty
-                <span class="text-muted">Not Assigned</span>
+                <span class="text-muted">Not Specified</span>
             @endforelse
     
             @if($count > 3)

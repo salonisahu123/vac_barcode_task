@@ -1,0 +1,13 @@
+ALTER TABLE `activities` MODIFY `description` text;
+ALTER TABLE `barcode_details` MODIFY `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+ALTER TABLE `custom_dashboards` MODIFY `view_json` longtext;
+ALTER TABLE `dashboard_tasks` MODIFY `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+ALTER TABLE `job_batches` MODIFY `options` mediumtext;
+ALTER TABLE `packing_slips` MODIFY `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+ALTER TABLE `personal_access_tokens` MODIFY `abilities` text;
+ALTER TABLE `scan_brcodes` MODIFY `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+ALTER TABLE `sessions` MODIFY `user_agent` text;
+ALTER TABLE `tasks` MODIFY `description` text;
+ALTER TABLE `ticket_assignments` MODIFY `remark` text;
+ALTER TABLE `tickets` MODIFY `description` longtext;
+ALTER TABLE `users` MODIFY `is_active` tinyint DEFAULT '1';

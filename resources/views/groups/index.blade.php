@@ -69,12 +69,13 @@ $isAdmin = $user->user_type == 'admin';
     {{ $group->department->dept_name ?? 'N/A' }}
 </td>
 
-<td>
-
 @php
 $emps  = $group->employees;
 $count = $emps->count();
+$empNames = $emps->pluck('user.name')->filter()->implode(', ');
 @endphp
+
+<td data-search="{{ $empNames }}" data-filter="{{ $empNames }}">
 
 <div class="d-flex align-items-center">
 
@@ -119,6 +120,7 @@ $count = $emps->count();
 @endif
 
 </div>
+<span style="display:none;" class="export-data">{{ $empNames ?: 'No Employee' }}</span>
 
 </td>
 

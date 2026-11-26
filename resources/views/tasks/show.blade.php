@@ -62,7 +62,7 @@
                 <a class="nav-link active" data-toggle="tab" href="#overview">Overview</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" data-toggle="tab" href="#activity">Activity</a>
+                <a class="nav-link" data-toggle="tab" href="#activity"><i class="fa fa-comment-dots mr-1"></i> Remarks ({{ count($activities) }})</a>
             </li>
         </ul>
     </div>
@@ -207,9 +207,14 @@
     <div class="activity-wrapper">
 
         {{-- HEADER --}}
-        <div class="activity-header">
-            <i class="fa fa-history text-primary"></i>
-            <span>Activity Timeline</span>
+        <div class="activity-header d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <i class="fa fa-comments text-primary mr-1"></i>
+                <span class="font-weight-bold">Remarks Timeline</span>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#remarkModal">
+                <i class="fa fa-plus mr-1"></i> Add Remark
+            </button>
         </div>
 
         {{-- TIMELINE --}}
@@ -218,49 +223,58 @@
             @forelse($activities as $act)
 
                 @php
-                    $empName = null;
-
-                    if($act->table_name == 'ticket_assignments') {
-                        $assign = \App\Models\TicketAssignment::with('employee.user')
-                            ->find($act->table_id);
-
-                        $empName = $assign->employee->user->name ?? null;
+                    $userName = \App\Models\User::find($act->user_id)?->name;
+                    $remarkText = $act->description;
+                    if (preg_match('/^Remark added on task ".*":\s*(.*)$/s', $remarkText, $matches)) {
+                        $remarkText = $matches[1];
+                    } elseif (preg_match('/^Task ".*" subtask changed from (.*)$/s', $remarkText, $matches)) {
+                        $remarkText = 'Subtask changed from ' . $matches[1];
+                    } elseif (preg_match('/^Task ".*" status changed from (.*) to (.*)$/s', $remarkText, $matches)) {
+                        $from = ucfirst(str_replace('_', ' ', trim($matches[1])));
+                        $to   = ucfirst(str_replace('_', ' ', trim($matches[2])));
+                        $remarkText = 'Status changed from ' . $from . ' to ' . $to;
+                    } elseif (str_contains($remarkText, '": ')) {
+                        $remarkText = \Illuminate\Support\Str::after($remarkText, '": ');
                     }
+                    $isSubtaskChange = str_starts_with($remarkText, 'Subtask changed') || $act->operation === 'subtask_change';
+                    $isStatusChange  = str_starts_with($remarkText, 'Status changed')  || $act->operation === 'status_change';
+                    $themeColor = $isSubtaskChange ? '#10b981' : ($isStatusChange ? '#f59e0b' : '#2563eb');
                 @endphp
-                
-                @php
-                $userName = \App\Models\User::find($act->user_id)?->name;
-            @endphp
 
                 <div class="timeline-item">
 
                     {{-- DOT --}}
-                    <div class="timeline-dot"></div>
+                    <div class="timeline-dot" style="background:{{ $themeColor }};"></div>
 
                     {{-- CONTENT --}}
-                    <div class="timeline-content">
+                    <div class="timeline-content" style="background:#fff; border: 1px solid #e9ecef; border-left: 3px solid {{ $themeColor }}; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;">
 
-                        <div class="timeline-title">
-                            {{ ucfirst($act->operation) }}
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <div class="timeline-user" style="font-weight:600; color:#1e293b; font-size:13px;">
+                                <i class="fa fa-user-circle mr-1" style="color:{{ $themeColor }};"></i> {{ $userName ?? 'User' }}
+                                @if($isSubtaskChange)
+                                    <span class="badge badge-light border text-success ml-2" style="font-size:10px; font-weight:600; vertical-align:middle;">
+                                        <i class="fa fa-tasks mr-1"></i> Subtask Update
+                                    </span>
+                                @elseif($isStatusChange)
+                                    <span class="badge badge-light border text-warning ml-2" style="font-size:10px; font-weight:600; vertical-align:middle;">
+                                        <i class="fa fa-info-circle mr-1"></i> Status Update
+                                    </span>
+                                @else
+                                    <span class="badge badge-light border text-primary ml-2" style="font-size:10px; font-weight:600; vertical-align:middle;">
+                                        <i class="fa fa-comment-dots mr-1"></i> Note / Remark
+                                    </span>
+                                @endif
+                            </div>
+
+                            <div class="timeline-time text-muted" style="font-size:12px;">
+                                <i class="fa fa-clock mr-1"></i>
+                                {{ \Carbon\Carbon::parse($act->created_at)->format('d M Y h:i A') }}
+                            </div>
                         </div>
-                        
-                        @if($userName)
-    <div class="timeline-user">
-        <strong>By :</strong> {{ $userName }}
-    </div>
-@endif
 
-                        <div class="timeline-desc">
-                            @if($empName)
-                                {{ str_replace('employee ID', $empName, $act->description) }}
-                            @else
-                                {{ $act->description }}
-                            @endif
-                        </div>
-
-                        <div class="timeline-time">
-                            <i class="fa fa-clock"></i>
-                            {{ \Carbon\Carbon::parse($act->created_at)->format('d M Y h:i A') }}
+                        <div class="timeline-desc mt-2" style="font-size:14px; color:#334155; line-height:1.6; white-space:pre-line;">
+                            {{ $remarkText }}
                         </div>
 
                     </div>
@@ -268,7 +282,10 @@
                 </div>
 
             @empty
-                <div class="text-muted p-3">No activity found</div>
+                <div class="text-muted p-4 text-center bg-white rounded border">
+                    <i class="fa fa-comment-slash fa-2x mb-2 d-block text-secondary" style="opacity: 0.4;"></i>
+                    No remarks found on this task.
+                </div>
             @endforelse
 
         </div>
@@ -283,8 +300,69 @@
 
 </div>
 
+{{-- ADD REMARK MODAL --}}
+<div class="modal fade" id="remarkModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa fa-comment-dots text-primary mr-1"></i> Add Remark</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label class="font-weight-bold">Remark <span class="text-danger">*</span></label>
+                <textarea id="task_show_remark_text" class="form-control" rows="4" placeholder="Enter remark..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnSubmitShowRemark">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @else
 <div class="alert alert-danger">No Permission</div>
 @endif
+
+@endsection
+
+@section('script')
+<script>
+$(document).ready(function () {
+    $('#btnSubmitShowRemark').on('click', function () {
+        let remark = $('#task_show_remark_text').val().trim();
+        if (!remark) {
+            Swal.fire('Error', 'Please enter remark', 'error');
+            return;
+        }
+        let $btn = $(this);
+        $btn.prop('disabled', true).text('Submitting...');
+
+        $.ajax({
+            url: '/tasks/{{ $task->id }}/remark',
+            type: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}',
+                remark: remark
+            },
+            success: function (res) {
+                $('#remarkModal').modal('hide');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: res.message || 'Remark added successfully'
+                }).then(() => {
+                    location.reload();
+                });
+            },
+            error: function (xhr) {
+                $btn.prop('disabled', false).text('Submit');
+                Swal.fire('Error', xhr.responseJSON?.message || 'Server error', 'error');
+            }
+        });
+    });
+});
+</script>
+
 
 @endsection

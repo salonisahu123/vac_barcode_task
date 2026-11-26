@@ -1,6 +1,6 @@
 @extends('layouts.master')
 
-@section('title','Tickets')
+@section('title','Employee Complaints')
 
 @section('css')
 <link rel="stylesheet" href="{{ asset('css/ticket.css') }}">
@@ -271,12 +271,12 @@ select option:disabled {
 
 @php
 $user = Auth::user();
-$isAdmin = $user->user_type == 'admin';
+$isAdmin = ($user && $user->user_type == 'admin') || hasPermission('ticket_view_all');
 @endphp
 
-@if($isAdmin || hasPermission('ticket_view_all') || hasPermission('ticket_view_own'))
+@if($isAdmin || hasPermission('ticket_view_all') || hasPermission('ticket_view_own') || hasPermission('ticket_add'))
 
-<x-breadcrumb title="Ticket Management" page="Ticket List" />
+<x-breadcrumb title="Employee Complaints" page="Complaint List" />
 
 <div class="mt-2"></div>
 
@@ -294,37 +294,70 @@ $isAdmin = $user->user_type == 'admin';
     <a href="{{ route('tickets.create') }}"
        class="btn btn-primary btn-sm"
        style="border-radius:6px;">
-        <i class="fa fa-plus me-1"></i> Create Ticket
+        <i class="fa fa-plus me-1"></i> File Complaint
     </a>
     @endif
 
 </div>
 <!--{ ================== FILTER START=============================}-->
-<div class="card p-3 mb-3 shadow-sm border-0">
+<div class="card p-3 mb-3 shadow-sm border-0" style="border-radius:12px; background:#fff;">
 
     <div class="row g-3 align-items-end">
 
-        <div class="col-md-3">
-            <label class="small mb-1">Location</label>
-            <select id="filter_location" class="form-control form-control-sm">
-                <option value="">All Location</option>
+        {{-- STATUS FILTER (DEFAULT: EXCLUDE CLOSED) --}}
+        <div class="col-md-3 col-sm-6">
+            <label class="small mb-1 font-weight-bold" style="color:#475569;">
+                <i class="fa fa-filter text-primary me-1"></i> Complaint Status
+            </label>
+            <select id="filter_status" class="form-control form-control-sm" style="border-radius:8px;">
+                <option value="active" {{ ($selectedStatus ?? 'active') == 'active' ? 'selected' : '' }}>
+                    Active (Exclude Closed)
+                </option>
+                <option value="all" {{ ($selectedStatus ?? '') == 'all' ? 'selected' : '' }}>
+                    All Statuses (Including Closed)
+                </option>
+                <option value="pending" {{ ($selectedStatus ?? '') == 'pending' ? 'selected' : '' }}>Pending</option>
+                <option value="assigned" {{ ($selectedStatus ?? '') == 'assigned' ? 'selected' : '' }}>Assigned</option>
+                <option value="in_progress" {{ ($selectedStatus ?? '') == 'in_progress' ? 'selected' : '' }}>In Progress</option>
+                <option value="hold" {{ ($selectedStatus ?? '') == 'hold' ? 'selected' : '' }}>Hold</option>
+                <option value="close_request" {{ ($selectedStatus ?? '') == 'close_request' ? 'selected' : '' }}>Close Request</option>
+                <option value="closed" {{ ($selectedStatus ?? '') == 'closed' ? 'selected' : '' }}>Closed Only</option>
+                <option value="reopen" {{ ($selectedStatus ?? '') == 'reopen' ? 'selected' : '' }}>Reopened</option>
+            </select>
+        </div>
+
+        {{-- LOCATION FILTER --}}
+        <div class="col-md-3 col-sm-6">
+            <label class="small mb-1 font-weight-bold" style="color:#475569;">
+                <i class="fa fa-location-dot text-danger me-1"></i> Location
+            </label>
+            <select id="filter_location" class="form-control form-control-sm" style="border-radius:8px;">
+                <option value="">All Locations</option>
                 @foreach($locations as $loc)
-                    <option value="{{ $loc->id }}">{{ $loc->name }}</option>
+                    <option value="{{ $loc->id }}" {{ request('location_id') == $loc->id ? 'selected' : '' }}>{{ $loc->name }}</option>
                 @endforeach
             </select>
         </div>
 
-        <div class="col-md-3">
-            <label class="small mb-1">Group</label>
-            <select id="filter_group" class="form-control form-control-sm">
-                <option value="">All Group</option>
+        {{-- GROUP FILTER --}}
+        <div class="col-md-3 col-sm-6">
+            <label class="small mb-1 font-weight-bold" style="color:#475569;">
+                <i class="fa fa-users text-info me-1"></i> Group
+            </label>
+            <select id="filter_group" class="form-control form-control-sm" style="border-radius:8px;">
+                <option value="">All Groups</option>
                 @foreach($groups as $grp)
-                    <option value="{{ $grp->id }}">{{ $grp->group_name }}</option>
+                    <option value="{{ $grp->id }}" {{ request('group_id') == $grp->id ? 'selected' : '' }}>{{ $grp->group_name }}</option>
                 @endforeach
             </select>
         </div>
 
-        
+        {{-- RESET BUTTON --}}
+        <div class="col-md-3 col-sm-6 d-flex align-items-end">
+            <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="btn_reset_filter" style="border-radius:8px; height:35px;" title="Reset filters to default">
+                <i class="fa fa-rotate-left me-1"></i> Reset Filters
+            </button>
+        </div>
 
     </div>
 
@@ -347,7 +380,7 @@ $isAdmin = $user->user_type == 'admin';
     <th>Location</th>
     <th>Group</th>
     @if($isAdmin)
-    <th>Assigned To</th>
+    <th>Complained Employee</th>
     @endif
     <!--<th>Created By</th>-->
     <th width="200">Action</th>
@@ -356,183 +389,7 @@ $isAdmin = $user->user_type == 'admin';
 
 <tbody id="ticketTableBody">
 
-@forelse($tickets as $key => $ticket)
-
-<tr style="font-size:13px;">
-
-    <td>{{ $key+1 }}</td>
-
-    <td><b>{{ $ticket->title }}</b></td>
-
-    <td>
-        <span class="badge">
-            {{ ucfirst($ticket->ticket_type) }}
-        </span>
-    </td>
-
-    <!--<td>-->
-    <!--    <span class="badge">-->
-    <!--        {{ ucfirst($ticket->priority) }}-->
-    <!--    </span>-->
-    <!--</td>-->
-
-<td>
-
-<span class="status-badge status-{{ str_replace('_','-',$ticket->status) }}">
-    {{ ucfirst(str_replace('_',' ',$ticket->status)) }}
-</span>
-
-@php
-    $canEditStatus = $ticket->can_edit_status ?? [];
-@endphp
-
-@if(
-    in_array($ticket->status, ['assigned', 'in_progress', 'hold', 'close_request'])
-    && ($canEditStatus['assigned_to_me'] ?? false)
-    && $ticket->status != 'close_request'
-)
-    <button class="btn btn-sm btn-outline-primary changeStatusBtn"
-        data-id="{{ $ticket->id }}"
-        data-status="{{ $ticket->status }}"
-        data-assigned="{{ $canEditStatus['assigned_to_me'] ?? 0 }}"
-        data-created="{{ $canEditStatus['created_by_me'] ?? 0 }}">
-        Change
-    </button>
-@endif
-
-</td>
-
-
-    <!--<td>{{ $ticket->department->dept_name ?? '-' }}</td>-->
-    <td>
-        {{ $ticket->location->name ?? '-' }}
-    </td>
-    
-    <td>
-    @php
-        $groupName = $ticket->assignments
-            ->pluck('group.group_name')
-            ->filter()
-            ->unique()
-            ->implode(', ');
-    @endphp
-
-    {{ $groupName ?: '-' }}
-   </td>
-
-    {{-- ASSIGNED USERS --}}
-    @if($isAdmin)
-    <td>
-        <div class="d-flex align-items-center">
-    
-            @php $count = $ticket->assignments->count(); @endphp
-    
-            @forelse($ticket->assignments->take(3) as $assign)
-                @if($assign->employee && $assign->employee->user)
-    
-                    <img src="{{ !empty($assign->employee->image) && file_exists(public_path('uploads/employees/'.$assign->employee->image)) 
-                                ? asset('uploads/employees/'.$assign->employee->image) 
-                                : asset('uploads/employees/user.png') }}"
-                         
-                         title="{{ $assign->employee->user->name }}"
-                         style="width:32px;height:32px;border-radius:50%;object-fit:cover;margin-left:-6px;border:2px solid #fff;">
-    
-                @endif
-            @empty
-                <span class="text-muted">Not Assigned</span>
-            @endforelse
-    
-            @if($count > 3)
-            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
-                 style="width:32px;height:32px;font-size:11px;margin-left:-6px;">
-                +{{ $count - 3 }}
-            </div>
-            @endif
-    
-        </div>
-    </td>
-    @endif
-
-    <!--<td>{{ $ticket->creator->name ?? '-' }}</td>-->
-
-    {{-- ACTION --}}
-    <td>
-    <div class="d-flex gap-1 align-items-center">
-
-        {{-- ASSIGN BUTTON --}}
-        @if(($isAdmin || hasPermission('ticket_assign')) && $ticket->status == 'pending')
-
-        <button class="action-btn assignBtn"
-            data-id="{{ $ticket->id }}"
-            data-type="{{ $ticket->ticket_type }}"
-            data-location="{{ $ticket->location->name ?? '' }}"
-            data-locationid="{{ $ticket->location_id }}"
-            title="Assign" style="cursor: pointer;">
-
-            <i class="fa fa-user-plus text-dark"></i>
-        </button>
-
-        @endif
-
-
-        {{-- STATUS ACTION BUTTONS --}}
-        @if($ticket->status == 'close_request' && $ticket->user_id == auth()->id())
-
-            {{-- CLOSE --}}
-            <button class="action-btn btn-close-ticket"
-                data-id="{{ $ticket->id }}"
-                title="Close Ticket">
-                <i class="fa fa-check text-success"></i>
-            </button>
-
-            {{-- REOPEN --}}
-            <button class="action-btn btn-reopen-ticket"
-                data-id="{{ $ticket->id }}"
-                title="Reopen Ticket">
-                <i class="fa fa-undo text-warning"></i>
-            </button>
-
-        @endif
-
-
-        {{-- VIEW --}}
-        <a href="{{ route('tickets.show',$ticket->id) }}"
-           class="action-btn">
-            <i class="fa fa-eye text-info"></i>
-        </a>
-        
-        {{-- EDIT --}}
-        @if(
-            ($isAdmin || hasPermission('ticket_edit')) 
-            && in_array($ticket->status, ['pending', 'close_request'])
-        )
-        <a href="{{ route('tickets.edit',$ticket->id) }}"
-           class="action-btn">
-            <i class="fa fa-edit text-warning"></i>
-        </a>
-        @endif
-
-        {{-- DELETE --}}
-        @if($isAdmin || hasPermission('ticket_delete'))
-        <form action="{{ route('tickets.destroy',$ticket->id) }}"
-              method="POST">
-            @csrf
-            @method('DELETE')
-
-            <button type="button" class="action-btn delete-btn" style="cursor: pointer;">
-                <i class="fa fa-trash text-danger"></i>
-            </button>
-        </form>
-        @endif
-
-    </div>
-</td>
-
-</tr>
-
-@empty
-
-@endforelse
+@include('tickets.partials.rows')
 
 </tbody>
 </table>
@@ -548,7 +405,7 @@ $isAdmin = $user->user_type == 'admin';
 <div class="modal-content">
 
 <div class="modal-header">
-<h5 class="modal-title">Assign Ticket</h5>
+<h5 class="modal-title">Assign Complained Employee</h5>
 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
     <span aria-hidden="true">&times;</span>
 </button>
@@ -560,9 +417,9 @@ $isAdmin = $user->user_type == 'admin';
 <input type="hidden" id="ticket_id">
 <input type="hidden" id="ticket_type">
 
-{{-- TICKET TYPE FIELD (modal me add karo) --}}
+{{-- COMPLAINT TYPE FIELD --}}
 <div class="mb-3">
-    <label class="mb-1">Ticket Type</label>
+    <label class="mb-1">Complaint Type</label>
     <select id="ticket_type_show" class="form-control" disabled>
         <option value="">Select</option>
         <option value="individual">Individual</option>
@@ -570,7 +427,7 @@ $isAdmin = $user->user_type == 'admin';
     </select>
 </div>
 
-{{-- LOCATION SHOW FIELD (Ticket Type ke neeche modal me add karo) --}}
+{{-- LOCATION SHOW FIELD --}}
 <div class="mb-3 d-none" id="ticket_location_show_box">
     <label class="mb-1">Selected Location</label>
     <input type="text" id="ticket_location_show" class="form-control" readonly>
@@ -588,13 +445,13 @@ $isAdmin = $user->user_type == 'admin';
     </select>
 </div>
 
-{{-- INDIVIDUAL --}}
+{{-- INDIVIDUAL COMPLAINED EMPLOYEES --}}
 <div id="employee_box" class="d-none mb-3">
-    <label class="mb-1">Employees</label>
+    <label class="mb-1">Complained Employees</label>
     <select id="employee_id" class="form-control select2" multiple>
         @foreach($employees as $emp)
             <option value="{{ $emp->id }}">
-                {{ $emp->user->name }}
+                {{ $emp->user->name ?? $emp->employee_name }}
             </option>
         @endforeach
     </select>
@@ -615,13 +472,13 @@ $isAdmin = $user->user_type == 'admin';
 
 {{-- LOCATION EMPLOYEES --}}
 <div id="location_emp_box" class="d-none mb-3">
-    <label class="mb-1">Employees</label>
+    <label class="mb-1">Complained Employees</label>
     <select id="location_employees" class="form-control select2" multiple></select>
 </div>
 
 {{-- GROUP / TEAM --}}
 <div id="group_box" class="d-none mb-3">
-    <label class="mb-1">Group / Team</label>
+    <label class="mb-1">Complained Group / Team</label>
     <select id="group_id" class="form-control select2">
         <option value="">Select</option>
     </select>
@@ -630,7 +487,7 @@ $isAdmin = $user->user_type == 'admin';
 </div>
 
 <div class="modal-footer">
-<button type="button" class="btn btn-primary" id="saveAssign">Assign</button>
+<button type="button" class="btn btn-primary" id="saveAssign">Assign Complained Employee</button>
 </div>
 
 </div>
@@ -643,7 +500,7 @@ $isAdmin = $user->user_type == 'admin';
 <div class="modal-content">
 
 <div class="modal-header">
-    <h5 class="modal-title">Update Ticket Status</h5>
+    <h5 class="modal-title">Update Complaint Status</h5>
     <button type="button" class="close" data-dismiss="modal">&times;</button>
 </div>
 
@@ -669,7 +526,7 @@ $isAdmin = $user->user_type == 'admin';
 @else
 
 <div class="alert alert-danger">
-    You do not have permission to view ticket list.
+    You do not have permission to view complaints list.
 </div>
 
 @endif
@@ -725,6 +582,20 @@ $(document).on('click', '.assignBtn', function () {
     $('#assignModal').modal('show');
 });
 
+$('#assignModal').on('shown.bs.modal', function () {
+    if ($.fn.select2) {
+        $('#employee_id').select2({
+            dropdownParent: $('#assignModal'),
+            width: '100%',
+            placeholder: 'Select Complained Employee(s)'
+        });
+        $('#location_id').select2({
+            dropdownParent: $('#assignModal'),
+            width: '100%'
+        });
+    }
+});
+
 
 /* MODE CHANGE */
 $('#assign_mode').change(function(){
@@ -750,6 +621,12 @@ $('#assign_mode').change(function(){
         });
 
         $('#location_employees').html(html);
+        if ($.fn.select2) {
+            $('#location_employees').select2({
+                dropdownParent: $('#assignModal'),
+                width: '100%'
+            });
+        }
         $('#location_emp_box').removeClass('d-none');
     }
 
@@ -769,6 +646,12 @@ $('#assign_mode').change(function(){
         });
 
         $('#group_id').html(html);
+        if ($.fn.select2) {
+            $('#group_id').select2({
+                dropdownParent: $('#assignModal'),
+                width: '100%'
+            });
+        }
         $('#group_box').removeClass('d-none');
     }
 
@@ -846,28 +729,34 @@ function loadTickets(){
         url: "{{ route('tickets.filter') }}",
         type: "GET",
         data: {
+            status: $('#filter_status').val(),
             location_id: $('#filter_location').val(),
             group_id: $('#filter_group').val()
         },
-
-        beforeSend: function(){
-            $('#ticketTableBody').html(`
-                <tr>
-                    <td colspan="9" class="text-center text-muted">
-                        Loading...
-                    </td>
-                </tr>
-            `);
-        },
-
         success: function(res){
-            $('#ticketTableBody').html(res.html);
+            if ($.fn.DataTable.isDataTable('#ticketTable')) {
+                $('#ticketTable').DataTable().destroy();
+            }
+            $('#ticketTableBody').html(res.html || '');
+            if (typeof window.initDataTables === 'function') {
+                window.initDataTables();
+            }
+        },
+        error: function(xhr){
+            console.error("Filter error:", xhr);
         }
     });
 
 }
 
-$('#filter_location, #filter_group').on('change', function(){
+$('#filter_status, #filter_location, #filter_group').on('change', function(){
+    loadTickets();
+});
+
+$('#btn_reset_filter').on('click', function(){
+    $('#filter_status').val('active');
+    $('#filter_location').val('');
+    $('#filter_group').val('');
     loadTickets();
 });
 
@@ -933,7 +822,7 @@ $(document).on('click', '.btn-close-ticket', function(){
 
     let id = $(this).data('id');
 
-    if(!confirm('Are you sure you want to close this ticket?')) return;
+    if(!confirm('Are you sure you want to close this complaint?')) return;
 
     updateStatus(id, 'closed');
 });
@@ -944,7 +833,7 @@ $(document).on('click', '.btn-reopen-ticket', function(){
 
     let id = $(this).data('id');
 
-    if(!confirm('Reopen this ticket?')) return;
+    if(!confirm('Reopen this complaint?')) return;
 
     updateStatus(id, 'reopen');
 });
@@ -996,34 +885,6 @@ $(document).on('click', '#updateStatus', function(){
     });
 
 });
-
-let allOptions = [
-    {value:'in_progress', label:'In Progress'},
-    {value:'hold', label:'Hold'},
-    {value:'close_request', label:'Close Request'}
-];
-
-let current = status;
-
-let options = '<option value="">Select status</option>';
-
-allOptions.forEach(function(opt){
-
-    let disabled = '';
-
-    // logic based on current status
-    if(current == 'in_progress' && opt.value == 'in_progress'){
-        disabled = 'disabled';
-    }
-
-    if(current == 'assigned'){
-        if(opt.value == 'assigned') disabled = 'disabled';
-    }
-
-    options += `<option value="${opt.value}" ${disabled}>${opt.label}</option>`;
-});
-
-$('#status_select').html(options);
 </script>
 
 

@@ -42,7 +42,7 @@ class PermissionSeeder extends Seeder
             'Group' => ['view','add','edit','delete'],
 
             // ================= TASK =================
-            'Task' => ['view','add','edit','delete','change_status'],
+            'Task' => ['view','add','edit','delete','change_status','change_subtask_status'],
 
             // ================= TICKET =================
             'Ticket' => ['view','add','edit','delete','change_status'],

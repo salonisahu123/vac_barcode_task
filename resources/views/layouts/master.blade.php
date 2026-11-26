@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ asset('style.css') }}">
     <link rel="stylesheet" href="{{ asset('css/responsive.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/colors.css') }}">
+    <!-- <link rel="stylesheet" href="{{ asset('css/colors.css') }}"> -->
     <link rel="stylesheet" href="{{ asset('css/bootstrap-select.css') }}">
     <link rel="stylesheet" href="{{ asset('css/perfect-scrollbar.css') }}">
     <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
@@ -123,105 +123,113 @@
 
 <!-- ================= DATA TABLE ================= -->
 <script>
+$.fn.dataTable.ext.errMode = 'none';
+
 window.initDataTables = function () {
 
     const exportRules = {
-        // task: {
-        //     hide: [8, 10, 11]  
-        // },
         task: { 
-            hide: [10]   
+            hide: []   
         },
         ticket: {
-            hide: [3, 6, 7]
+            hide: []
         },
-      group: {
-        hide: [4, 6]   
-       },
-       
-       employee: {
-        hide: [1, 7]   
+        group: {
+            hide: []   
+        },
+        employee: {
+            hide: [1]   
         },
     };
 
-    if ($.fn.DataTable.isDataTable('.datatable')) {
-        $('.datatable').DataTable().destroy();
-    }
+    $('.datatable').each(function () {
+        if ($.fn.DataTable.isDataTable(this)) {
+            $(this).DataTable().destroy();
+        }
+    });
 
     $('.datatable').each(function () {
-
-        let tableType = $(this).data('table');
+        let $table = $(this);
+        let tableType = $table.data('table');
         let hideCols = exportRules[tableType]?.hide || [];
 
-            let dtExportOptions = {
-                columns: function (idx) {
-                    return !hideCols.includes(idx);
-                },
-                format: {
-                    body: function (data, row, column, node) {
-                        let $node = $(node);
-                        // 1. If it has a select element, return selected text
-                        if ($node.find('select').length > 0) {
-                            return $node.find('select option:selected').text().trim();
-                        }
-                        // 2. If it has an .export-data element, return its text
-                        if ($node.find('.export-data').length > 0) {
-                            return $node.find('.export-data').text().trim();
-                        }
-                        // 3. Fallback to extracting text and removing extra whitespace
-                        return $node.text().replace(/\s\s+/g, ' ').trim();
-                    }
+        let dtExportOptions = {
+            columns: function (idx, data, node) {
+                let headerText = $table.find('thead th').eq(idx).text().trim().toLowerCase();
+                if (headerText === 'action' || headerText === 'actions') {
+                    return false;
                 }
-            };
-
-            $(this).DataTable({
-                pageLength: 10,
-                lengthMenu: [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
-                ordering: true,
-                searching: true,
-                responsive: true,
-                lengthChange: true,
-                autoWidth: false,
-
-                dom: '<"d-flex justify-content-between align-items-center mb-2"lBf>rtip',
-
-                buttons: [
-                    {
-                        extend: 'copy',
-                        className: 'btn btn-secondary btn-sm',
-                        exportOptions: dtExportOptions
-                    },
-                    {
-                        extend: 'csv',
-                        className: 'btn btn-info btn-sm',
-                        exportOptions: dtExportOptions
-                    },
-                    {
-                        extend: 'excel',
-                        className: 'btn btn-success btn-sm',
-                        exportOptions: dtExportOptions
-                    },
-                    {
-                        extend: 'pdf',
-                        className: 'btn btn-danger btn-sm',
-                        orientation: 'landscape',
-                        pageSize: 'A4',
-                        exportOptions: dtExportOptions,
-                        customize: function (doc) {
-                            doc.defaultStyle.fontSize = 5;
-                            doc.styles.tableHeader.fontSize = 5;
-                            doc.pageMargins = [10, 10, 10, 10];
-                            doc.content[1].table.widths =
-                                Array(doc.content[1].table.body[0].length).fill('*');
-                        }
-                    },
-                    {
-                        extend: 'print',
-                        className: 'btn btn-dark btn-sm',
-                        exportOptions: dtExportOptions
+                return !hideCols.includes(idx);
+            },
+            format: {
+                body: function (data, row, column, node) {
+                    let $node = $(node);
+                    // 1. If it has a select element, return selected text
+                    if ($node.find('select').length > 0) {
+                        return $node.find('select option:selected').text().trim();
                     }
-                ]
-            });
+                    // 2. If it has an .export-data element, return its text
+                    if ($node.find('.export-data').length > 0) {
+                        return $node.find('.export-data').text().trim();
+                    }
+                    // 3. Fallback to extracting text and removing extra whitespace
+                    return $node.text().replace(/\s\s+/g, ' ').trim();
+                }
+            }
+        };
+
+        $table.DataTable({
+            pageLength: 10,
+            lengthMenu: [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
+            ordering: true,
+            searching: true,
+            responsive: true,
+            lengthChange: true,
+            autoWidth: false,
+            language: {
+                emptyTable: "No data available in table",
+                zeroRecords: "No matching records found"
+            },
+
+            dom: '<"d-flex justify-content-between align-items-center mb-2"lBf>rtip',
+
+            buttons: [
+                {
+                    extend: 'copy',
+                    className: 'btn btn-secondary btn-sm',
+                    exportOptions: dtExportOptions
+                },
+                {
+                    extend: 'csv',
+                    className: 'btn btn-info btn-sm',
+                    exportOptions: dtExportOptions
+                },
+                {
+                    extend: 'excel',
+                    className: 'btn btn-success btn-sm',
+                    exportOptions: dtExportOptions
+                },
+                {
+                    extend: 'pdf',
+                    className: 'btn btn-danger btn-sm',
+                    orientation: 'landscape',
+                    pageSize: 'A4',
+                    exportOptions: dtExportOptions,
+                    customize: function (doc) {
+                        doc.defaultStyle.fontSize = 5;
+                        doc.styles.tableHeader.fontSize = 5;
+                        doc.pageMargins = [10, 10, 10, 10];
+                        doc.content[1].table.widths =
+                            Array(doc.content[1].table.body[0].length).fill('*');
+                    }
+                },
+                {
+                    extend: 'print',
+                    className: 'btn btn-dark btn-sm',
+                    exportOptions: dtExportOptions
+                }
+            ]
+        });
 
     });
 

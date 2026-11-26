@@ -36,51 +36,54 @@ document.querySelectorAll(".close").forEach(btn=>{
 
 /* SAVE TASK */
 
-saveTask.addEventListener("click",()=>{
+if (saveTask) {
+    saveTask.addEventListener("click",()=>{
 
-    const title = document.getElementById("taskTitle").value;
-    const desc = document.getElementById("taskDesc").value;
-    const priority = document.getElementById("taskPriority").value;
+        const title = document.getElementById("taskTitle").value;
+        const desc = document.getElementById("taskDesc").value;
+        const priority = document.getElementById("taskPriority").value;
 
-    if(title === ""){
+        if(title === ""){
 
-        alert("Please Enter Task Title");
-        return;
+            alert("Please Enter Task Title");
+            return;
 
-    }
+        }
 
-    const task = document.createElement("li");
+        const task = document.createElement("li");
 
-    task.classList.add("task-item");
+        task.classList.add("task-item");
 
-    task.innerHTML = `
+        task.innerHTML = `
 
-        <span class="task-item-close">
-            <i class="fa-solid fa-xmark"></i>
-        </span>
+            <span class="task-item-close">
+                <i class="fa-solid fa-xmark"></i>
+            </span>
 
-        <h4>${title}</h4>
+            <h4>${title}</h4>
 
-        <p>${desc}</p>
+            <p>${desc}</p>
 
-        <button class="view-btn">
-            <i class="fa-solid fa-eye"></i>
-            View
-        </button>
+            <button class="view-btn">
+                <i class="fa-solid fa-eye"></i>
+                View
+            </button>
 
-        <span class="status ${priority}">
-            ${priority}
-        </span>
+            <span class="status ${priority}">
+                ${priority}
+            </span>
 
-    `;
+        `;
 
-    currentList.prepend(task);
+        if (currentList) currentList.prepend(task);
 
-    popup.style.display = "none";
+        if (popup) popup.style.display = "none";
 
-    document.getElementById("taskForm").reset();
+        const taskForm = document.getElementById("taskForm");
+        if (taskForm) taskForm.reset();
 
-});
+    });
+}
 
 /* DELETE TASK */
 
@@ -112,48 +115,53 @@ document.addEventListener("click",(e)=>{
 
 /* ADD NEW BOARD */
 
-document.querySelector(".add-task-board").addEventListener("click",()=>{
+const addTaskBoardBtn = document.querySelector(".add-task-board");
+if (addTaskBoardBtn) {
+    addTaskBoardBtn.addEventListener("click",()=>{
 
-    let boardName = prompt("Enter Board Name");
+        let boardName = prompt("Enter Board Name");
 
-    if(boardName === "" || boardName === null){
+        if(boardName === "" || boardName === null){
 
-        return;
+            return;
 
-    }
+        }
 
-    const newBoard = document.createElement("div");
+        const newBoard = document.createElement("div");
 
-    newBoard.classList.add("task-list");
+        newBoard.classList.add("task-list");
 
-    newBoard.innerHTML = `
+        newBoard.innerHTML = `
 
-        <div class="header">
+            <div class="header">
 
-            <h2>${boardName}</h2>
+                <h2>${boardName}</h2>
 
-            <div class="d-flex">
+                <div class="d-flex">
 
-                <button class="add-task">
-                    <i class="fa-solid fa-plus"></i>
-                </button>
+                    <button class="add-task">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
 
-                <button class="task-close">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
+                    <button class="task-close">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+
+                </div>
 
             </div>
 
-        </div>
+            <ul class="list"></ul>
 
-        <ul class="list"></ul>
+        `;
 
-    `;
+        if (board) {
+            board.insertBefore(
+                newBoard,
+                document.querySelector(".btn-board")
+            );
+        }
 
-    board.insertBefore(
-        newBoard,
-        document.querySelector(".btn-board")
-    );
-
-});
+    });
+}
 

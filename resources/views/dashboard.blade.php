@@ -140,6 +140,16 @@ $isAdmin = $user->user_type == 'admin';
 
             @endif
 
+            {{-- REFRESH BUTTON --}}
+            <button type="button"
+                    class="btn btn-outline-primary d-flex align-items-center"
+                    style="height:42px; border-radius:10px; font-weight:600; padding:0 16px; gap:8px;"
+                    onclick="window.location.reload();"
+                    title="Reload Dashboard">
+                <i class="fa fa-rotate-right"></i>
+                <span>Refresh</span>
+            </button>
+
         </div>
 
     </div>
@@ -221,7 +231,7 @@ $isAdmin = $user->user_type == 'admin';
     </div>
 
 
-    {{-- ================= TOTAL TICKETS ================= --}}
+    {{-- ================= TOTAL COMPLAINTS ================= --}}
     @if(!$isEmployee)
     <div class="col-lg-3 col-md-6">
         <a href="{{ route('tickets.index') }}" class="card-link">
@@ -231,11 +241,11 @@ $isAdmin = $user->user_type == 'admin';
 
                 <div class="card-body-flex">
                     <div class="card-icon orange">
-                        <i class="fa fa-ticket"></i>
+                        <i class="fa fa-exclamation-circle"></i>
                     </div>
                     <div class="card-content">
                         <p class="total">{{ $globalTicketCount }}</p>
-                        <p class="label">All Tickets</p>
+                        <p class="label">All Complaints</p>
                     </div>
                 </div>
 
@@ -245,7 +255,7 @@ $isAdmin = $user->user_type == 'admin';
     @endif
 
 
-    {{-- ================= ASSIGNED TICKETS ================= --}}
+    {{-- ================= ASSIGNED COMPLAINTS ================= --}}
     <div class="col-lg-3 col-md-6">
         <div class="dashboard-card small-card">
 
@@ -259,7 +269,7 @@ $isAdmin = $user->user_type == 'admin';
                 </div>
                 <div class="card-content">
                     <p class="total">{{ $ticketCount }}</p>
-                    <p class="label">Assigned Tickets</p>
+                    <p class="label">Assigned Complaints</p>
                 </div>
             </div>
 
@@ -290,7 +300,7 @@ $isAdmin = $user->user_type == 'admin';
     </div>
     
     
-    {{-- ================= PENDING TICKETS ================= --}}
+    {{-- ================= PENDING COMPLAINTS ================= --}}
 <div class="col-lg-3 col-md-6">
     <div class="dashboard-card small-card">
 
@@ -300,11 +310,11 @@ $isAdmin = $user->user_type == 'admin';
 
         <div class="card-body-flex">
             <div class="card-icon orange">
-                <i class="fa fa-ticket"></i>
+                <i class="fa fa-exclamation-circle"></i>
             </div>
             <div class="card-content">
                 <p class="total">{{ $pendingTicketCount }}</p>
-                <p class="label">Pending Tickets</p>
+                <p class="label">Pending Complaints</p>
             </div>
         </div>
 
@@ -605,19 +615,19 @@ document.addEventListener("DOMContentLoaded", function(){
     const departmentBox = document.getElementById("departmentBox");
 
     function toggleDropdown(){
-        if(filterType.value === "location"){
-            locationBox.style.display = "block";
-            departmentBox.style.display = "none";
-        }else{
-            locationBox.style.display = "none";
-            departmentBox.style.display = "block";
+        if(filterType && filterType.value === "location"){
+            if(locationBox) locationBox.style.display = "block";
+            if(departmentBox) departmentBox.style.display = "none";
+        }else if(filterType){
+            if(locationBox) locationBox.style.display = "none";
+            if(departmentBox) departmentBox.style.display = "block";
         }
     }
 
-    toggleDropdown();
-
-    filterType.addEventListener("change", toggleDropdown);
-
+    if(filterType) {
+        toggleDropdown();
+        filterType.addEventListener("change", toggleDropdown);
+    }
 });
 </script>
 <script>

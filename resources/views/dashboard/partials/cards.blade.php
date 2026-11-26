@@ -66,15 +66,15 @@ $isAdminUser = in_array($roleSlug, ['super-admin', 'admin']);
     @endif
 
 
-    {{-- ALL TICKETS --}}
+    {{-- ALL COMPLAINTS --}}
     @if(!$isEmployee && ($config['ticket_module']['redirect_div'] ?? false))
     <div class="col-xl-3 col-lg-3 col-md-6 col-12 mb-3">
         <a href="{{ route('tickets.index') }}">
             <div class="dashboard-card small-card">
-                <i class="fa fa-ticket icon orange"></i>
+                <i class="fa fa-exclamation-circle icon orange"></i>
                 <div class="text">
                     <span class="count">{{ $globalTicketCount }}</span>
-                    <span class="label">All Tickets</span>
+                    <span class="label">All Complaints</span>
                 </div>
             </div>
         </a>
@@ -82,20 +82,20 @@ $isAdminUser = in_array($roleSlug, ['super-admin', 'admin']);
     @endif
 
 
-    {{-- ASSIGNED TICKETS --}}
+    {{-- ASSIGNED COMPLAINTS --}}
     @if($config['ticket_module']['redirect_div'] ?? false)
     <div class="col-xl-3 col-lg-3 col-md-6 col-12 mb-3">
         <div class="dashboard-card small-card">
-            <i class="fa fa-ticket icon blue"></i>
+            <i class="fa fa-exclamation-circle icon blue"></i>
             <div class="text">
                 <span class="count">{{ $assignedTicketCount }}</span>
-                <span class="label"> {{ $isAdminUser ? 'My Assigned Tickets' : 'My Tickets' }}</span>
+                <span class="label"> {{ $isAdminUser ? 'Assigned Complaints' : 'My Complaints' }}</span>
             </div>
         </div>
     </div>
     @endif
     
-    {{-- UNASSIGNED PENDING TICKETS --}}
+    {{-- UNASSIGNED PENDING COMPLAINTS --}}
     @if(!$isEmployee && ($config['ticket_module']['redirect_div'] ?? false))
     <div class="col-xl-3 col-lg-3 col-md-6 col-12 mb-3">
         <div class="dashboard-card small-card">
@@ -105,7 +105,7 @@ $isAdminUser = in_array($roleSlug, ['super-admin', 'admin']);
                 <span class="count">{{ $pendingUnassignedTickets }}</span>
     
                 <span class="label">
-                    Pending Unassigned Tickets
+                    Pending Unassigned Complaints
                 </span>
             </div>
         </div>

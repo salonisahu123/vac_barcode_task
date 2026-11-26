@@ -435,98 +435,16 @@ $isEmployee = $user->user_type == 'employee';
             </div>
 
             {{-- RIGHT --}}
-            <!--<div class="right-side">-->
-
-            <!--    @if(!$isEmployee)-->
-
-            <!--    <form method="GET"-->
-            <!--          action="{{ route('tasks.pending') }}"-->
-            <!--          class="d-flex align-items-center flex-wrap"-->
-            <!--          style="gap:12px;"-->
-            <!--          id="filterForm">-->
-
-            <!--        {{-- FILTER TYPE --}}-->
-            <!--        <select name="filter_type"-->
-            <!--                id="filterType"-->
-            <!--                class="filter-select">-->
-
-            <!--            <option value="location"-->
-            <!--                {{ request('filter_type','location') == 'location' ? 'selected' : '' }}>-->
-            <!--                Location-->
-            <!--            </option>-->
-
-            <!--            <option value="department"-->
-            <!--                {{ request('filter_type') == 'department' ? 'selected' : '' }}>-->
-            <!--                Department-->
-            <!--            </option>-->
-
-            <!--        </select>-->
-
-            <!--        {{-- LOCATION --}}-->
-            <!--        <div id="locationBox">-->
-
-            <!--            <select name="location_id"-->
-            <!--                    class="filter-select"-->
-            <!--                    onchange="document.getElementById('filterForm').submit()">-->
-
-            <!--                <option value=""-->
-            <!--                    {{ empty($locationId) ? 'selected' : '' }}>-->
-            <!--                    Select Location-->
-            <!--                </option>-->
-
-            <!--                <option value="all"-->
-            <!--                    {{ $locationId === 'all' ? 'selected' : '' }}>-->
-            <!--                    All Location-->
-            <!--                </option>-->
-
-            <!--                @foreach($locations as $location)-->
-
-            <!--                    <option value="{{ $location->id }}"-->
-            <!--                        {{ request('location_id') == $location->id ? 'selected' : '' }}>-->
-            <!--                        {{ $location->name }}-->
-            <!--                    </option>-->
-
-            <!--                @endforeach-->
-
-            <!--            </select>-->
-
-            <!--        </div>-->
-
-            <!--        {{-- DEPARTMENT --}}-->
-            <!--        <div id="departmentBox">-->
-
-            <!--            <select name="department_id"-->
-            <!--                    class="filter-select"-->
-            <!--                    onchange="document.getElementById('filterForm').submit()">-->
-
-            <!--                <option value=""-->
-            <!--                    {{ $departmentId == '' ? 'selected' : '' }}>-->
-            <!--                    Select Department-->
-            <!--                </option>-->
-
-            <!--                <option value="all"-->
-            <!--                    {{ $departmentId == 'all' ? 'selected' : '' }}>-->
-            <!--                    All Department-->
-            <!--                </option>-->
-
-            <!--                @foreach($departments as $department)-->
-
-            <!--                    <option value="{{ $department->id }}"-->
-            <!--                        {{ request('department_id') == $department->id ? 'selected' : '' }}>-->
-            <!--                        {{ $department->dept_name }}-->
-            <!--                    </option>-->
-
-            <!--                @endforeach-->
-
-            <!--            </select>-->
-
-            <!--        </div>-->
-
-            <!--    </form>-->
-
-            <!--    @endif-->
-
-            <!--</div>-->
+            <div class="right-side">
+                <button type="button"
+                        class="btn btn-outline-primary d-flex align-items-center"
+                        style="height:42px; border-radius:10px; font-weight:600; padding:0 16px; gap:8px; font-family:'Poppins',sans-serif;"
+                        onclick="window.location.reload();"
+                        title="Reload Dashboard">
+                    <i class="fa fa-rotate-right"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
 
         </div>
 
@@ -559,14 +477,15 @@ $isEmployee = $user->user_type == 'employee';
     </div>
 </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <strong>Next Refresh Time:</strong>
-        <span id="nextRefreshTime">05:00</span>
+<div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-white shadow-sm" style="border: 1px solid #eef1f6; border-radius:12px;">
+    <div class="d-flex align-items-center" style="gap:10px;">
+        <span class="badge badge-light border text-dark p-2" style="font-size:13px; font-weight:600; border-radius:8px;">
+            <i class="fa fa-clock-o text-primary mr-1"></i> Next Refresh in: <span id="nextRefreshTime" class="text-primary font-weight-bold">05:00</span>
+        </span>
     </div>
 
-    <button type="button" class="btn btn-primary btn-sm" onclick="location.reload();">
-        Refresh Now
+    <button type="button" class="btn btn-primary btn-sm px-3 shadow-sm d-flex align-items-center" onclick="window.location.reload();" style="border-radius:8px; font-weight:600; gap:6px;">
+        <i class="fa fa-rotate-right"></i> Refresh Now
     </button>
 </div>
 
@@ -644,6 +563,31 @@ $isEmployee = $user->user_type == 'employee';
     </small>
 </h4>
 
+                                @if(!empty($task->latest_remark_text) && !str_starts_with(strtolower($task->latest_remark_text), 'status changed'))
+                                    @php
+                                        $remarkUser = $task->latestRemark?->user?->name ?? 'User';
+                                        $remarkDate = $task->latestRemark?->created_at ? \Carbon\Carbon::parse($task->latestRemark->created_at) : null;
+                                        $humanTime = $remarkDate ? ($remarkDate->isToday() ? 'Today, ' . $remarkDate->format('h:i A') : ($remarkDate->isYesterday() ? 'Yesterday, ' . $remarkDate->format('h:i A') : $remarkDate->format('d M, h:i A'))) : '';
+                                    @endphp
+                                    <div class="task-latest-remark mt-2" 
+                                         style="font-size: 11px; line-height: 1.35; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #6366f1; padding: 5px 8px; border-radius: 6px; word-break: break-word;"
+                                         title="Latest Remark by {{ $remarkUser }} on {{ $remarkDate ? $remarkDate->format('d M Y, h:i A') : '' }}">
+                                        <div class="task-latest-remark-meta d-flex justify-content-between align-items-center mb-1" style="font-size: 10.5px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 2px;">
+                                            <span class="task-latest-remark-user" style="font-weight: 600; color: #4338ca;">
+                                                <i class="fa fa-user-circle me-1"></i>{{ $remarkUser }}
+                                            </span>
+                                            @if($humanTime)
+                                                <span class="task-latest-remark-time text-muted" style="font-size: 10px;">
+                                                    <i class="fa fa-clock me-1"></i>{{ $humanTime }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <div class="task-latest-remark-body" style="color: #1e293b; font-size: 11.5px; margin-top: 2px;">
+                                            <span style="font-weight: 600; color: #475569;"><i class="fa fa-comment-dots text-primary me-1"></i></span>{{ $task->latest_remark_text }}
+                                        </div>
+                                    </div>
+                                @endif
+
                             </div>
 
                             @php
@@ -708,43 +652,35 @@ document.addEventListener("DOMContentLoaded", function(){
     const departmentBox = document.getElementById("departmentBox");
 
     function toggleDropdown(){
-
-        if(filterType.value === "location"){
-
-            locationBox.style.display = "block";
-            departmentBox.style.display = "none";
-
-        }else{
-
-            locationBox.style.display = "none";
-            departmentBox.style.display = "block";
-
+        if(filterType && filterType.value === "location"){
+            if(locationBox) locationBox.style.display = "block";
+            if(departmentBox) departmentBox.style.display = "none";
+        }else if(filterType){
+            if(locationBox) locationBox.style.display = "none";
+            if(departmentBox) departmentBox.style.display = "block";
         }
-
     }
 
-    toggleDropdown();
-
-    filterType.addEventListener("change", toggleDropdown);
-
+    if(filterType) {
+        toggleDropdown();
+        filterType.addEventListener("change", toggleDropdown);
+    }
 });
 
 /* =========================================================
    RESET FILTER
 ========================================================= */
 
-document.getElementById("filterType").addEventListener("change", function () {
-
-    let url = new URL(window.location.href);
-
-    url.searchParams.delete("location_id");
-    url.searchParams.delete("department_id");
-
-    url.searchParams.set("filter_type", this.value);
-
-    window.location.href = url.toString();
-
-});
+const filterTypeEl = document.getElementById("filterType");
+if(filterTypeEl) {
+    filterTypeEl.addEventListener("change", function () {
+        let url = new URL(window.location.href);
+        url.searchParams.delete("location_id");
+        url.searchParams.delete("department_id");
+        url.searchParams.set("filter_type", this.value);
+        window.location.href = url.toString();
+    });
+}
 
 </script>
 

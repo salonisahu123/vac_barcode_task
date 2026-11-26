@@ -220,6 +220,15 @@
     box-shadow:0 8px 18px rgba(0,0,0,0.08);
 }
 
+@keyframes blink-recent {
+    0% { box-shadow: 0 0 0 0 rgba(22, 119, 255, 0.4); border-color: transparent; }
+    50% { box-shadow: 0 0 15px 4px rgba(22, 119, 255, 0.8) !important; border-color: #1677ff !important; }
+    100% { box-shadow: 0 0 0 0 rgba(22, 119, 255, 0.4); border-color: transparent; }
+}
+.blink-recent-task {
+    animation: blink-recent 1.5s infinite !important;
+}
+
 /* =========================================================
    CONTENT
 ========================================================= */
@@ -376,10 +385,10 @@
 }
 
 .task-item.inprogress-neardue-highlight{
-    background: #e6fffb !important;
-    border: 1px solid #87e8de !important;
-    border-left: 6px solid #13c2c2 !important;
-    box-shadow: 0 2px 8px rgba(19,194,194,0.15);
+    background: #fef9c3 !important;
+    border: 1px solid #fde047 !important;
+    border-left: 6px solid #eab308 !important;
+    box-shadow: 0 2px 8px rgba(234,179,8,0.15);
 }
 
 .task-item.in-progress-highlight{
@@ -426,98 +435,16 @@ $isEmployee = $user->user_type == 'employee';
             </div>
 
             
-            <!--<div class="right-side">-->
-
-            <!--    <?php if(!$isEmployee): ?>-->
-
-            <!--    <form method="GET"-->
-            <!--          action="<?php echo e(route('tasks.pending')); ?>"-->
-            <!--          class="d-flex align-items-center flex-wrap"-->
-            <!--          style="gap:12px;"-->
-            <!--          id="filterForm">-->
-
-            <!--        -->
-            <!--        <select name="filter_type"-->
-            <!--                id="filterType"-->
-            <!--                class="filter-select">-->
-
-            <!--            <option value="location"-->
-            <!--                <?php echo e(request('filter_type','location') == 'location' ? 'selected' : ''); ?>>-->
-            <!--                Location-->
-            <!--            </option>-->
-
-            <!--            <option value="department"-->
-            <!--                <?php echo e(request('filter_type') == 'department' ? 'selected' : ''); ?>>-->
-            <!--                Department-->
-            <!--            </option>-->
-
-            <!--        </select>-->
-
-            <!--        -->
-            <!--        <div id="locationBox">-->
-
-            <!--            <select name="location_id"-->
-            <!--                    class="filter-select"-->
-            <!--                    onchange="document.getElementById('filterForm').submit()">-->
-
-            <!--                <option value=""-->
-            <!--                    <?php echo e(empty($locationId) ? 'selected' : ''); ?>>-->
-            <!--                    Select Location-->
-            <!--                </option>-->
-
-            <!--                <option value="all"-->
-            <!--                    <?php echo e($locationId === 'all' ? 'selected' : ''); ?>>-->
-            <!--                    All Location-->
-            <!--                </option>-->
-
-            <!--                <?php $__currentLoopData = $locations; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $location): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>-->
-
-            <!--                    <option value="<?php echo e($location->id); ?>"-->
-            <!--                        <?php echo e(request('location_id') == $location->id ? 'selected' : ''); ?>>-->
-            <!--                        <?php echo e($location->name); ?>-->
-            <!--                    </option>-->
-
-            <!--                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>-->
-
-            <!--            </select>-->
-
-            <!--        </div>-->
-
-            <!--        -->
-            <!--        <div id="departmentBox">-->
-
-            <!--            <select name="department_id"-->
-            <!--                    class="filter-select"-->
-            <!--                    onchange="document.getElementById('filterForm').submit()">-->
-
-            <!--                <option value=""-->
-            <!--                    <?php echo e($departmentId == '' ? 'selected' : ''); ?>>-->
-            <!--                    Select Department-->
-            <!--                </option>-->
-
-            <!--                <option value="all"-->
-            <!--                    <?php echo e($departmentId == 'all' ? 'selected' : ''); ?>>-->
-            <!--                    All Department-->
-            <!--                </option>-->
-
-            <!--                <?php $__currentLoopData = $departments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $department): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>-->
-
-            <!--                    <option value="<?php echo e($department->id); ?>"-->
-            <!--                        <?php echo e(request('department_id') == $department->id ? 'selected' : ''); ?>>-->
-            <!--                        <?php echo e($department->dept_name); ?>-->
-            <!--                    </option>-->
-
-            <!--                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>-->
-
-            <!--            </select>-->
-
-            <!--        </div>-->
-
-            <!--    </form>-->
-
-            <!--    <?php endif; ?>-->
-
-            <!--</div>-->
+            <div class="right-side">
+                <button type="button"
+                        class="btn btn-outline-primary d-flex align-items-center"
+                        style="height:42px; border-radius:10px; font-weight:600; padding:0 16px; gap:8px; font-family:'Poppins',sans-serif;"
+                        onclick="window.location.reload();"
+                        title="Reload Dashboard">
+                    <i class="fa fa-rotate-right"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
 
         </div>
 
@@ -537,7 +464,7 @@ $isEmployee = $user->user_type == 'employee';
         <span style="font-size:13px; font-weight:600; color:#444;">Without Starting - Today/Tomorrow Due</span>
     </div>
     <div class="d-flex align-items-center">
-        <span style="width:16px; height:16px; background:#13c2c2; border-radius:4px; display:inline-block; margin-right:8px;"></span>
+        <span style="width:16px; height:16px; background:#eab308; border-radius:4px; display:inline-block; margin-right:8px;"></span>
         <span style="font-size:13px; font-weight:600; color:#444;">In Progress - Today/Tomorrow Due</span>
     </div>
     <div class="d-flex align-items-center">
@@ -550,14 +477,15 @@ $isEmployee = $user->user_type == 'employee';
     </div>
 </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <strong>Next Refresh Time:</strong>
-        <span id="nextRefreshTime">05:00</span>
+<div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-white shadow-sm" style="border: 1px solid #eef1f6; border-radius:12px;">
+    <div class="d-flex align-items-center" style="gap:10px;">
+        <span class="badge badge-light border text-dark p-2" style="font-size:13px; font-weight:600; border-radius:8px;">
+            <i class="fa fa-clock-o text-primary mr-1"></i> Next Refresh in: <span id="nextRefreshTime" class="text-primary font-weight-bold">05:00</span>
+        </span>
     </div>
 
-    <button type="button" class="btn btn-primary btn-sm" onclick="location.reload();">
-        Refresh Now
+    <button type="button" class="btn btn-primary btn-sm px-3 shadow-sm d-flex align-items-center" onclick="window.location.reload();" style="border-radius:8px; font-weight:600; gap:6px;">
+        <i class="fa fa-rotate-right"></i> Refresh Now
     </button>
 </div>
 
@@ -618,14 +546,16 @@ $isEmployee = $user->user_type == 'employee';
     }
 ?>
 
-<li class="task-item <?php echo e($highlightClass); ?>">
+<li class="task-item <?php echo e($highlightClass); ?> <?php echo e($isRecentlyAdded ? 'blink-recent-task' : ''); ?>">
 
                             
                             <div class="task-content">
 
                             <h4>
-    <?php echo e($task->title); ?>
+    <a href="<?php echo e(route('tasks.show', $task->id)); ?>" style="color: inherit; text-decoration: none;" class="task-link-hover">
+        <?php echo e($task->title); ?>
 
+    </a>
     <small class="text-muted d-block mt-1">
         <?php echo e(\Carbon\Carbon::parse($task->from_date)->format('d M Y')); ?>
 
@@ -634,6 +564,34 @@ $isEmployee = $user->user_type == 'employee';
 
     </small>
 </h4>
+
+                                <?php if(!empty($task->latest_remark_text) && !str_starts_with(strtolower($task->latest_remark_text), 'status changed')): ?>
+                                    <?php
+                                        $remarkUser = $task->latestRemark?->user?->name ?? 'User';
+                                        $remarkDate = $task->latestRemark?->created_at ? \Carbon\Carbon::parse($task->latestRemark->created_at) : null;
+                                        $humanTime = $remarkDate ? ($remarkDate->isToday() ? 'Today, ' . $remarkDate->format('h:i A') : ($remarkDate->isYesterday() ? 'Yesterday, ' . $remarkDate->format('h:i A') : $remarkDate->format('d M, h:i A'))) : '';
+                                    ?>
+                                    <div class="task-latest-remark mt-2" 
+                                         style="font-size: 11px; line-height: 1.35; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #6366f1; padding: 5px 8px; border-radius: 6px; word-break: break-word;"
+                                         title="Latest Remark by <?php echo e($remarkUser); ?> on <?php echo e($remarkDate ? $remarkDate->format('d M Y, h:i A') : ''); ?>">
+                                        <div class="task-latest-remark-meta d-flex justify-content-between align-items-center mb-1" style="font-size: 10.5px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 2px;">
+                                            <span class="task-latest-remark-user" style="font-weight: 600; color: #4338ca;">
+                                                <i class="fa fa-user-circle me-1"></i><?php echo e($remarkUser); ?>
+
+                                            </span>
+                                            <?php if($humanTime): ?>
+                                                <span class="task-latest-remark-time text-muted" style="font-size: 10px;">
+                                                    <i class="fa fa-clock me-1"></i><?php echo e($humanTime); ?>
+
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="task-latest-remark-body" style="color: #1e293b; font-size: 11.5px; margin-top: 2px;">
+                                            <span style="font-weight: 600; color: #475569;"><i class="fa fa-comment-dots text-primary me-1"></i></span><?php echo e($task->latest_remark_text); ?>
+
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
 
                             </div>
 
@@ -699,43 +657,35 @@ document.addEventListener("DOMContentLoaded", function(){
     const departmentBox = document.getElementById("departmentBox");
 
     function toggleDropdown(){
-
-        if(filterType.value === "location"){
-
-            locationBox.style.display = "block";
-            departmentBox.style.display = "none";
-
-        }else{
-
-            locationBox.style.display = "none";
-            departmentBox.style.display = "block";
-
+        if(filterType && filterType.value === "location"){
+            if(locationBox) locationBox.style.display = "block";
+            if(departmentBox) departmentBox.style.display = "none";
+        }else if(filterType){
+            if(locationBox) locationBox.style.display = "none";
+            if(departmentBox) departmentBox.style.display = "block";
         }
-
     }
 
-    toggleDropdown();
-
-    filterType.addEventListener("change", toggleDropdown);
-
+    if(filterType) {
+        toggleDropdown();
+        filterType.addEventListener("change", toggleDropdown);
+    }
 });
 
 /* =========================================================
    RESET FILTER
 ========================================================= */
 
-document.getElementById("filterType").addEventListener("change", function () {
-
-    let url = new URL(window.location.href);
-
-    url.searchParams.delete("location_id");
-    url.searchParams.delete("department_id");
-
-    url.searchParams.set("filter_type", this.value);
-
-    window.location.href = url.toString();
-
-});
+const filterTypeEl = document.getElementById("filterType");
+if(filterTypeEl) {
+    filterTypeEl.addEventListener("change", function () {
+        let url = new URL(window.location.href);
+        url.searchParams.delete("location_id");
+        url.searchParams.delete("department_id");
+        url.searchParams.set("filter_type", this.value);
+        window.location.href = url.toString();
+    });
+}
 
 </script>
 

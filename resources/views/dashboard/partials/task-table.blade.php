@@ -36,7 +36,7 @@
             </span>
         </td>
         
-        <td>
+        <td data-search="{{ $subtasks[$task->subtask_id] ?? '-' }}" data-filter="{{ $subtasks[$task->subtask_id] ?? '-' }}" data-order="{{ $subtasks[$task->subtask_id] ?? '-' }}">
     <span class="badge"
           style="background:#ecfdf3; color:#027a48; font-weight:500;">
 
@@ -54,7 +54,10 @@
     <td style="color:#6c757d;">{{ $task->to_date }}</td>
 
     <!-- Assigned -->
-    <td>
+    @php
+        $assignedNames = $task->taskUsers->pluck('employee.user.name')->filter()->implode(', ');
+    @endphp
+    <td data-search="{{ $assignedNames }}" data-filter="{{ $assignedNames }}">
         <div class="d-flex align-items-center">
             @php $count = $task->taskUsers->count(); @endphp
 
@@ -72,6 +75,7 @@
                 </div>
             @endif
         </div>
+        <span style="display:none;" class="export-data">{{ $assignedNames ?: '-' }}</span>
     </td>
 
     <td>{{ $task->createdBy->name ?? '-' }}</td>
@@ -103,7 +107,16 @@
     </td>
 
     <!-- STATUS -->
-    <td style="min-width:160px;">
+    @php
+        $currentStatus = match($task->status) {
+            'pending' => 'Pending',
+            'in_progress' => 'In Progress',
+            'completed' => 'Completed',
+            default => ucfirst(str_replace('_', ' ', $task->status))
+        };
+    @endphp
+    <td style="min-width:160px;" data-search="{{ $currentStatus }}" data-filter="{{ $currentStatus }}" data-order="{{ $currentStatus }}">
+        <span style="display:none;" class="export-data">{{ $currentStatus }}</span>
         @if($isAdmin || hasPermission('task_change_status'))
 
         <select class="form-select form-select-sm changeStatus"

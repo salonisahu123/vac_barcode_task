@@ -104,7 +104,11 @@ $isAdmin = $user->user_type == 'admin';
                                 </span>
                             </td>
 
-                            <td>
+                            @php
+                                $empStatus = $emp->user->is_active ? 'Active' : 'Inactive';
+                            @endphp
+                            <td data-search="{{ $empStatus }}" data-filter="{{ $empStatus }}" data-order="{{ $empStatus }}">
+                                <span style="display:none;" class="export-data">{{ $empStatus }}</span>
                                 @if($isAdmin || hasPermission('employee_edit'))
                                     <form action="{{ route('employees.updateStatus') }}" method="POST">
                                         @csrf

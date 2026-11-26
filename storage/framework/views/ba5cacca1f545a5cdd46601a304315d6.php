@@ -268,11 +268,11 @@ $defaultDash = $dashboards->first();
          
 
          
-         <?php if($isAdmin || hasAnyPermission(['ticket_view_own','ticket_view_all'])): ?>
+         <?php if($isAdmin || hasAnyPermission(['ticket_view_own','ticket_view_all','ticket_add'])): ?>
          <li>
             <a href="<?php echo e(route('tickets.index')); ?>">
-               <i class="fa fa-ticket yellow_color"></i>
-               <span>Ticket Module</span>
+               <i class="fa fa-exclamation-circle yellow_color"></i>
+               <span>Employee Complaints</span>
             </a>
          </li>
          <?php endif; ?>

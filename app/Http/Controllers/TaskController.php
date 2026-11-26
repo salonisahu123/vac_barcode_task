@@ -13,139 +13,201 @@ use App\Models\Employee;
 use App\Models\Activity;
 use Illuminate\Support\Facades\Auth;
 use App\Notifications\TaskUpdatedNotification;
+use App\Exports\TasksExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TaskController extends Controller
 {
     /* =======================================
-       LIST
+       QUERY BUILDER (Shared by Index, Filter, Export)
     ======================================= */
-    public function index()
-{
-    $user = Auth::user();
+    private function buildTaskQuery(Request $request)
+    {
+        $user = Auth::user();
+        $employeeId = Employee::where('user_id', $user->id)->value('id');
 
-    $isAdmin = $user->user_type == 'admin';
-
-    $employeeId = Employee::where('user_id', $user->id)->value('id');
-
-    if (hasPermission('task_view_all')) {
-
-        $tasks = Task::with([
+        $query = Task::with([
             'createdBy',
             'location',
             'group',
-            'taskUsers.employee.user'
-            ])
-            ->whereIn('status', ['pending', 'in_progress'])
-            ->latest()
-            ->get();
+            'taskUsers.employee.user',
+            'subtask',
+            'latestRemark.user'
+        ]);
 
-    } elseif (hasPermission('task_view_own')) {
-
-           $tasks = Task::with([
-            'createdBy',
-            'location',
-            'group',
-            'taskUsers.employee.user'
-        ])
-       ->where(function ($query) use ($employeeId, $user) {
-
-        $query->where('user_id', $user->id)
-    
-            ->orWhereHas('taskUsers', function ($q) use ($employeeId) {
-                $q->where('assigned_to', $employeeId);
+        if (hasPermission('task_view_all')) {
+            // Full access to view all tasks
+        } elseif (hasPermission('task_view_own')) {
+            $query->where(function ($taskQuery) use ($employeeId, $user) {
+                $taskQuery->where('user_id', $user->id)
+                    ->orWhereHas('taskUsers', function ($q) use ($employeeId) {
+                        $q->where('assigned_to', $employeeId);
+                    });
             });
-    })
-        ->whereIn('status', ['pending', 'in_progress'])
-        ->latest()
-        ->get();
+        } else {
+            $query->whereRaw('1 = 0');
+        }
 
-    } else {
-        return response()->view('errors.no-access');
+        // Location Filter
+        if ($request->filled('location_id')) {
+            $query->where('location_id', $request->location_id);
+        }
+
+        // Group Filter
+        if ($request->filled('group_id')) {
+            $query->where('group_id', $request->group_id);
+        }
+
+        // Employee Filter
+        if ($request->filled('employee_id')) {
+            $query->whereHas('taskUsers', function ($q) use ($request) {
+                $q->where('assigned_to', $request->employee_id);
+            });
+        }
+
+        // Status Filter
+        if ($request->filled('status')) {
+            $status = $request->status;
+            if ($status === 'all') {
+                // Show all statuses - no condition
+            } elseif ($status === 'pending_in_progress') {
+                $query->whereIn('status', ['pending', 'in_progress']);
+            } else {
+                $query->where('status', $status);
+            }
+        } else {
+            // Default: Pending & In Progress
+            $query->whereIn('status', ['pending', 'in_progress']);
+        }
+
+        // Search Filter (Title, Task Type, Subtask, Location, Group, Assigned User, Created By, Dates)
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('task_type', 'like', "%{$search}%")
+                  ->orWhere('from_date', 'like', "%{$search}%")
+                  ->orWhere('to_date', 'like', "%{$search}%")
+                  ->orWhereHas('location', function ($sub) use ($search) {
+                      $sub->where('name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('group', function ($sub) use ($search) {
+                      $sub->where('group_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('subtask', function ($sub) use ($search) {
+                      $sub->where('subtask', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('createdBy', function ($sub) use ($search) {
+                      $sub->where('name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('taskUsers.employee.user', function ($sub) use ($search) {
+                      $sub->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        return $query;
     }
 
-    $locations = Location::all();
-    $groups = Group::all();
-    $employees = Employee::whereHas('user', function($q) {
-        $q->where('is_active', 1);
-    })->with('user')->get();
-    $subtasks = Subtask::pluck('subtask', 'id');
+    /* =======================================
+       LIST (Server-Side Paginated)
+    ======================================= */
+    public function index(Request $request)
+    {
+        if (!hasPermission('task_view_all') && !hasPermission('task_view_own')) {
+            return response()->view('errors.no-access');
+        }
 
-    return view('tasks.index', compact(
-        'tasks',
-        'locations',
-        'groups',
-        'employees',
-        'isAdmin',
-        'subtasks',
-        'employeeId'
-    ));
-}
-    
-public function filter(Request $request)
-{
-    $user = auth()->user();
-    $employeeId = Employee::where('user_id', $user->id)->value('id');
-    $subtasks = Subtask::pluck('subtask', 'id');
+        $user = Auth::user();
+        $isAdmin = $user->user_type == 'admin';
+        $employeeId = Employee::where('user_id', $user->id)->value('id');
 
-    $query = Task::with([
-        'location',
-        'group',
-        'taskUsers.employee.user',
-        'createdBy'
-    ]);
+        $perPage = (int) $request->input('per_page', 10);
+        if (!in_array($perPage, [10, 25, 50, 100])) {
+            $perPage = 10;
+        }
 
-   
-    if (
-    hasPermission('task_view_own') &&
-    !hasPermission('task_view_all')
-    ) {
-        $query->where(function ($taskQuery) use ($employeeId, $user) {
-    
-            $taskQuery->where('user_id', $user->id)
-    
-                ->orWhereHas('taskUsers', function ($q) use ($employeeId) {
-                    $q->where('assigned_to', $employeeId);
-                });
-        });
+        $query = $this->buildTaskQuery($request);
+        $tasks = $query->latest()->paginate($perPage)->withQueryString();
+
+        $locations = Location::all();
+        $groups = Group::all();
+        $employees = Employee::whereHas('user', function($q) {
+            $q->where('is_active', 1);
+        })->with('user')->get();
+        $subtasks = Subtask::pluck('subtask', 'id');
+
+        return view('tasks.index', compact(
+            'tasks',
+            'locations',
+            'groups',
+            'employees',
+            'isAdmin',
+            'subtasks',
+            'employeeId',
+            'perPage'
+        ));
     }
 
-    if ($request->location_id) {
-        $query->where('location_id', $request->location_id);
-    }
+    /* =======================================
+       AJAX FILTER & PAGINATION
+    ======================================= */
+    public function filter(Request $request)
+    {
+        if (!hasPermission('task_view_all') && !hasPermission('task_view_own')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
 
-    if ($request->group_id) {
-        $query->where('group_id', $request->group_id);
-    }
+        $isAdmin = auth()->user()->user_type == 'admin';
+        $subtasks = Subtask::pluck('subtask', 'id');
 
-    if ($request->filled('employee_id')) {
-        $query->whereHas('taskUsers', function ($q) use ($request) {
-            $q->where('assigned_to', $request->employee_id);
-        })->whereNull('group_id');
-    }
-    
-    if ($request->filled('status')) {
+        $perPage = (int) $request->input('per_page', 10);
+        if (!in_array($perPage, [10, 25, 50, 100])) {
+            $perPage = 10;
+        }
 
-    $query->where('status', $request->status);
+        $query = $this->buildTaskQuery($request);
+        $tasks = $query->latest()->paginate($perPage);
 
-    } else {
-    
-        // Default listing: completed tasks hide rahenge
-        $query->whereIn('status', ['pending', 'in_progress']);
-    }
-
-    $tasks = $query->latest()->get();
-    $isAdmin = auth()->user()->user_type == 'admin';
-
-    if($tasks->isEmpty()){
         return response()->json([
-            'html' => '<tr><td colspan="11" class="text-center text-muted">No tasks found</td></tr>'
+            'html' => view('tasks.partials.rows', compact('tasks', 'isAdmin', 'subtasks'))->render(),
+            'pagination' => view('tasks.partials.pagination', compact('tasks'))->render(),
+            'total' => $tasks->total(),
+            'from' => $tasks->firstItem() ?? 0,
+            'to' => $tasks->lastItem() ?? 0,
+            'current_page' => $tasks->currentPage(),
+            'last_page' => $tasks->lastPage(),
         ]);
     }
 
-    return response()->json([
-        'html' => view('tasks.partials.rows', compact('tasks','isAdmin','subtasks'))->render()
-    ]);
-}
+    /* =======================================
+       EXPORT (Excel & CSV with all active filters)
+    ======================================= */
+    public function export(Request $request)
+    {
+        if (!hasPermission('task_view_all') && !hasPermission('task_view_own')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $query = $this->buildTaskQuery($request);
+        $tasks = $query->latest()->get();
+
+        $format = strtolower($request->get('format', 'xlsx'));
+        $fileName = 'tasks_' . date('Y_m_d_His') . '.' . ($format === 'csv' ? 'csv' : 'xlsx');
+
+        if ($format === 'csv') {
+            return Excel::download(
+                new TasksExport($tasks),
+                $fileName,
+                \Maatwebsite\Excel\Excel::CSV
+            );
+        }
+
+        return Excel::download(
+            new TasksExport($tasks),
+            $fileName
+        );
+    }
 
     /* =======================================
        CREATE PAGE
@@ -324,12 +386,39 @@ public function filter(Request $request)
     
     $isCreator = $task->user_id == $user->id;
 
+    $isDashboardAccess = false;
+    if ($user->user_type != 'admin') {
+        $assignedDashboardIds = \DB::table('employee_dashboards')
+            ->where('employee_id', $employeeId)
+            ->pluck('dashboard_id')
+            ->toArray();
+            
+        if (!empty($assignedDashboardIds)) {
+            $assignedDashboards = \App\Models\CustomDashboard::whereIn('id', $assignedDashboardIds)->get();
+            $enabledSubtaskNames = [];
+            foreach ($assignedDashboards as $assignedDashboard) {
+                $config = json_decode($assignedDashboard->view_json, true) ?? [];
+                $taskSubtasks = data_get($config, 'task_module.subtasks', []);
+                foreach ($taskSubtasks as $subtaskName => $isEnabled) {
+                    if ($isEnabled === true || $isEnabled === 1 || $isEnabled === '1') {
+                        $enabledSubtaskNames[] = trim($subtaskName);
+                    }
+                }
+            }
+            $enabledSubtaskIds = \App\Models\Subtask::whereIn('subtask', $enabledSubtaskNames)->pluck('id')->toArray();
+            if (in_array($task->subtask_id, $enabledSubtaskIds)) {
+                $isDashboardAccess = true;
+            }
+        }
+    }
+
     if (
         !hasPermission('task_view_all') &&
         !(
             hasPermission('task_view_own') &&
             ($isAssigned || $isCreator)
-        )
+        ) && 
+        !$isDashboardAccess
     ) {
         return response()->view('errors.no-access');
     }
@@ -348,6 +437,7 @@ public function filter(Request $request)
 
     $activities = \App\Models\Activity::where('table_name', 'tasks')
         ->where('table_id', $task->id)
+        ->whereIn('operation', ['remark', 'subtask_change', 'status_change'])
         ->orderBy('created_at', 'desc')
         ->get();
         
@@ -393,13 +483,10 @@ public function filter(Request $request)
             $isCreator = $task->user_id == $user->id;
 
             if (
-                hasPermission('task_edit')
-                ||
-                (
-                    hasPermission('task_view_own')
-                    &&
-                    ($isAssigned || $isCreator)
-                )
+                $user->user_type == 'admin' ||
+                hasPermission('task_edit') ||
+                hasPermission('task_view_all') ||
+                hasPermission('task_view_own')
             ) {
 
             } else {
@@ -413,12 +500,17 @@ public function filter(Request $request)
         $groups    = Group::all();
         $subtask = Subtask::all();
 
+        $individualEmployees = $task->task_type == 'individual' ? $task->taskUsers->pluck('assigned_to')->toArray() : [];
+        $locationEmployees = $task->task_type == 'location' ? $task->taskUsers->pluck('assigned_to')->toArray() : [];
+
         return view('tasks.edit', compact(
             'task',
             'employees',
             'locations',
             'groups',
-            'subtask'
+            'subtask',
+            'individualEmployees',
+            'locationEmployees'
         ));
     }
 
@@ -444,13 +536,10 @@ public function update(Request $request, $id)
     $isCreator = $task->user_id == $user->id;
 
     if (
-        hasPermission('task_edit')
-        ||
-        (
-            hasPermission('task_view_own')
-            &&
-            ($isAssigned || $isCreator)
-        )
+        $user->user_type == 'admin' ||
+        hasPermission('task_edit') ||
+        hasPermission('task_view_all') ||
+        hasPermission('task_view_own')
     ) {
 
     } else {
@@ -488,6 +577,10 @@ public function update(Request $request, $id)
         }
 
         /* TASK UPDATE */
+        $oldSubtaskId = $task->subtask_id;
+        $oldTaskType  = $task->task_type;
+        $oldStatus    = $task->status;
+
         $updateData = [
             'title'       => $request->title,
             'task_type'   => $request->task_type,
@@ -523,6 +616,54 @@ public function update(Request $request, $id)
     }
 
         $task->update($updateData);
+
+        // Subtask change remark
+        if ($oldSubtaskId != $request->subtask_id) {
+            $oldSubtaskObj = $oldSubtaskId ? \App\Models\Subtask::find($oldSubtaskId) : null;
+            $oldSubtaskName = $oldSubtaskObj ? $oldSubtaskObj->subtask : 'None';
+            $newSubtaskObj = $request->subtask_id ? \App\Models\Subtask::find($request->subtask_id) : null;
+            $newSubtaskName = $newSubtaskObj ? $newSubtaskObj->subtask : 'None';
+
+            if ($oldSubtaskName !== $newSubtaskName) {
+                Activity::create([
+                    'user_id'     => Auth::id(),
+                    'table_name'  => 'tasks',
+                    'table_id'    => $task->id,
+                    'operation'   => 'subtask_change',
+                    'description' => 'Task "' . $task->title . '" subtask changed from ' . $oldSubtaskName . ' to ' . $newSubtaskName,
+                ]);
+
+                $this->sendTaskNotification(
+                    $task,
+                    'Task "' . $task->title . '" subtask changed from ' . $oldSubtaskName . ' to ' . $newSubtaskName . '.'
+                );
+            }
+        }
+
+        // Task type change remark
+        if ($oldTaskType && $request->task_type && $oldTaskType !== $request->task_type) {
+            Activity::create([
+                'user_id'     => Auth::id(),
+                'table_name'  => 'tasks',
+                'table_id'    => $task->id,
+                'operation'   => 'update',
+                'description' => 'Task "' . $task->title . '": Task type changed from ' . ucfirst($oldTaskType) . ' to ' . ucfirst($request->task_type),
+            ]);
+        }
+
+        // Status change remark
+        if ($oldStatus && $request->status && $oldStatus !== $request->status) {
+            $fromLabel = ucfirst(str_replace('_', ' ', $oldStatus));
+            $toLabel   = ucfirst(str_replace('_', ' ', $request->status));
+
+            Activity::create([
+                'user_id'     => Auth::id(),
+                'table_name'  => 'tasks',
+                'table_id'    => $task->id,
+                'operation'   => 'status_change',
+                'description' => 'Task "' . $task->title . '" status changed from ' . $fromLabel . ' to ' . $toLabel,
+            ]);
+        }
        
 
         /* EMPLOYEE ASSIGNMENT */
@@ -609,7 +750,14 @@ public function update(Request $request, $id)
     
     public function destroy($id)
 {
-    if (!hasPermission('task_delete')) {
+    $user = Auth::user();
+    if (!(
+        $user->user_type == 'admin' ||
+        hasPermission('task_delete') ||
+        hasPermission('task_edit') ||
+        hasPermission('task_view_all') ||
+        hasPermission('task_view_own')
+    )) {
         return response()->view('errors.no-access');
     }
 
@@ -681,13 +829,23 @@ public function update(Request $request, $id)
             'status' => $request->status
         ]);
     
-        Activity::create([
-            'user_id'     => Auth::id(),
-            'table_name'  => 'tasks',
-            'table_id'    => $task->id,
-            'operation'   => 'status_change',
-            'description' => 'Task "'.$task->title.'" status changed from '.$oldStatus.' to '.$request->status,
-        ]);
+        if ($oldStatus !== $request->status) {
+            $fromLabel = ucfirst(str_replace('_', ' ', $oldStatus));
+            $toLabel   = ucfirst(str_replace('_', ' ', $request->status));
+
+            Activity::create([
+                'user_id'     => Auth::id(),
+                'table_name'  => 'tasks',
+                'table_id'    => $task->id,
+                'operation'   => 'status_change',
+                'description' => 'Task "' . $task->title . '" status changed from ' . $fromLabel . ' to ' . $toLabel,
+            ]);
+
+            $this->sendTaskNotification(
+                $task,
+                'Task "' . $task->title . '" status changed from ' . $fromLabel . ' to ' . $toLabel . '.'
+            );
+        }
     
         return response()->json([
             'status' => true,
@@ -700,7 +858,17 @@ public function update(Request $request, $id)
     ======================================= */
     public function changeSubtask(Request $request, $id)
     {
-        if (!hasPermission('task_edit')) {
+        $task = Task::findOrFail($id);
+        $user = Auth::user();
+        
+        $employeeId = \App\Models\Employee::where('user_id', $user->id)->value('id');
+        $isAssigned = $task->taskUsers->where('assigned_to', $employeeId)->count() > 0;
+        $isCreator = $task->user_id == $user->id;
+
+        if (!(
+            $user->user_type == 'admin' ||
+            hasPermission('task_change_subtask_status')
+        )) {
             return response()->json([
                 'status' => false,
                 'message' => 'No permission'
@@ -713,20 +881,30 @@ public function update(Request $request, $id)
     
         $task = Task::findOrFail($id);
         
-        $oldSubtaskName = $task->subtask_id ? \App\Models\Subtask::find($task->subtask_id)->subtask : '-';
-        $newSubtaskName = $request->subtask_id ? \App\Models\Subtask::find($request->subtask_id)->subtask : '-';
+        $oldSubtask = $task->subtask_id ? \App\Models\Subtask::find($task->subtask_id) : null;
+        $oldSubtaskName = $oldSubtask ? $oldSubtask->subtask : 'None';
+        
+        $newSubtask = $request->subtask_id ? \App\Models\Subtask::find($request->subtask_id) : null;
+        $newSubtaskName = $newSubtask ? $newSubtask->subtask : 'None';
     
         $task->update([
             'subtask_id' => $request->subtask_id
         ]);
     
-        Activity::create([
-            'user_id'     => Auth::id(),
-            'table_name'  => 'tasks',
-            'table_id'    => $task->id,
-            'operation'   => 'subtask_change',
-            'description' => 'Task "'.$task->title.'" subtask changed from '.$oldSubtaskName.' to '.$newSubtaskName,
-        ]);
+        if ($oldSubtaskName !== $newSubtaskName) {
+            Activity::create([
+                'user_id'     => Auth::id(),
+                'table_name'  => 'tasks',
+                'table_id'    => $task->id,
+                'operation'   => 'subtask_change',
+                'description' => 'Task "' . $task->title . '" subtask changed from ' . $oldSubtaskName . ' to ' . $newSubtaskName,
+            ]);
+
+            $this->sendTaskNotification(
+                $task,
+                'Task "' . $task->title . '" subtask changed from '.$oldSubtaskName.' to ' . $newSubtaskName . '.'
+            );
+        }
     
         return response()->json([
             'status' => true,
@@ -749,6 +927,11 @@ public function update(Request $request, $id)
         'operation' => 'remark',
         'description' => 'Remark added on task "' . $task->title . '": ' . $request->remark,
     ]);
+
+    $this->sendTaskNotification(
+        $task,
+        'Remark added on task "' . $task->title . '": ' . $request->remark
+    );
 
      return response()->json([
         'status' => true,
@@ -779,6 +962,14 @@ private function sendTaskNotification(Task $task, string $message)
             if ($assignedUser && $assignedUser->id !== $currentUser->id) {
                 $usersToNotify->push($assignedUser);
             }
+        }
+    }
+
+    // 3. Add Admins
+    $admins = User::where('user_type', 'admin')->get();
+    foreach ($admins as $admin) {
+        if ($admin->id !== $currentUser->id) {
+            $usersToNotify->push($admin);
         }
     }
 

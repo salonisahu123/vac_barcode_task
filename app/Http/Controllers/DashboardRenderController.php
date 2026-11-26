@@ -921,7 +921,8 @@ $enabledSubtaskNames = array_values(
     | SHOW ONLY ENABLED SUBTASK TASKS
     |--------------------------------------------------------------------------
     */
-    $tasks = Task::whereIn('id', $taskIds)
+    $tasks = Task::with(['latestRemark.user'])
+        ->whereIn('id', $taskIds)
         ->whereIn('subtask_id', $enabledSubtaskIds)
         ->whereIn('status', ['pending', 'in_progress'])
         ->orderBy('created_at', 'desc')

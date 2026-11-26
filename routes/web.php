@@ -353,7 +353,12 @@ Route::middleware(['auth'])->group(function () {
     */
     
     Route::get('/tasks/filter', [TaskController::class, 'filter'])
-    ->name('tasks.filter');
+    ->name('tasks.filter')
+    ->middleware('permission:task_view_all,task_view_own');
+
+    Route::get('/tasks/export', [TaskController::class, 'export'])
+    ->name('tasks.export')
+    ->middleware('permission:task_view_all,task_view_own');
 
      Route::get('tasks', [TaskController::class, 'index'])
     ->name('tasks.index')
@@ -388,7 +393,7 @@ Route::put('tasks/{id}', [TaskController::class, 'update'])
 
     Route::delete('tasks/{id}', [TaskController::class, 'destroy'])
     ->name('tasks.destroy')
-    ->middleware('permission:task_delete');
+    ->middleware('permission:task_delete,task_edit,task_view_all,task_view_own');
 
     Route::post('tasks/{id}/status', [TaskController::class, 'changeStatus'])
     ->name('tasks.changeStatus')
@@ -396,7 +401,7 @@ Route::put('tasks/{id}', [TaskController::class, 'update'])
     
     Route::post('tasks/{id}/subtask', [TaskController::class, 'changeSubtask'])
     ->name('tasks.changeSubtask')
-    ->middleware('permission:task_edit');
+    ->middleware('permission:task_edit,task_view_own,task_view_all');
     
     Route::post('tasks/{id}/remark', [TaskController::class, 'storeRemark'])
     ->name('tasks.remark')
@@ -417,7 +422,7 @@ Route::put('tasks/{id}', [TaskController::class, 'update'])
     
     Route::get('tickets', [TicketController::class, 'index'])
     ->name('tickets.index')
-    ->middleware('permission:ticket_view_all,ticket_view_own');
+    ->middleware('permission:ticket_view_all,ticket_view_own,ticket_add');
 
     Route::get('tickets/create', [TicketController::class,'create'])
     ->name('tickets.create')
@@ -429,15 +434,15 @@ Route::put('tasks/{id}', [TaskController::class, 'update'])
 
     Route::get('tickets/{id}', [TicketController::class,'show'])
     ->name('tickets.show')
-    ->middleware('permission:ticket_view_all,ticket_view_own');
+    ->middleware('permission:ticket_view_all,ticket_view_own,ticket_add');
 
     Route::get('tickets/{id}/edit', [TicketController::class,'edit'])
     ->name('tickets.edit')
-    ->middleware('permission:ticket_edit');
+    ->middleware('permission:ticket_edit,ticket_view_own,ticket_add');
 
     Route::put('tickets/{id}', [TicketController::class,'update'])
     ->name('tickets.update')
-    ->middleware('permission:ticket_edit');
+    ->middleware('permission:ticket_edit,ticket_view_own,ticket_add');
 
     Route::delete('tickets/{id}', [TicketController::class,'destroy'])
     ->name('tickets.destroy')
@@ -448,11 +453,11 @@ Route::put('tasks/{id}', [TaskController::class, 'update'])
 
     Route::post('tickets/assign', [TicketController::class,'assign'])
     ->name('tickets.assign')
-    ->middleware('permission:ticket_change_status');
+    ->middleware('permission:ticket_change_status,ticket_assign,ticket_view_all');
 
     Route::post('tickets/{id}/comment', [TicketController::class,'addComment'])
     ->name('tickets.comment')
-    ->middleware('permission:ticket_view_all');
+    ->middleware('permission:ticket_view_all,ticket_view_own,ticket_add');
 
     /*
     |---------------- ROLE ----------------
@@ -610,10 +615,10 @@ Route::get('/notifications', function () {
         ->latest()
         ->get();
 
-    // Sirf latest 5 read/seen notifications
+    // Sirf latest 50 read/seen notifications
     $readNotifications = $user->readNotifications()
         ->latest()
-        ->take(5)
+        ->take(50)
         ->get();
 
     return response()->json([

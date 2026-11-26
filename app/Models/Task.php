@@ -55,6 +55,58 @@ class Task extends Model
     {
         return $this->belongsTo(Subtask::class);
     }
+
+    public function activities()
+    {
+        return $this->hasMany(Activity::class, 'table_id')
+            ->where('table_name', 'tasks');
+    }
+
+    public function remarks()
+    {
+        return $this->hasMany(Activity::class, 'table_id')
+            ->where('table_name', 'tasks')
+            ->where('operation', 'remark')
+            ->where('description', 'not like', '%status changed%')
+            ->where('description', 'not like', '%subtask changed%');
+    }
+
+    public function latestRemark()
+    {
+        return $this->hasOne(Activity::class, 'table_id')
+            ->ofMany(
+                ['id' => 'max'],
+                function ($query) {
+                    $query->where('table_name', 'tasks')
+                        ->where('operation', 'remark')
+                        ->where('description', 'not like', '%status changed%')
+                        ->where('description', 'not like', '%subtask changed%');
+                }
+            );
+    }
+
+    public function getLatestRemarkTextAttribute()
+    {
+        if (!$this->latestRemark) {
+            return null;
+        }
+
+        $desc = $this->latestRemark->description;
+
+        if (stripos($desc, 'status changed') !== false || stripos($desc, 'subtask changed') !== false) {
+            return null;
+        }
+
+        if (preg_match('/^Remark added on task ".*":\s*(.*)$/s', $desc, $matches)) {
+            return $matches[1];
+        }
+
+        if (str_contains($desc, '": ')) {
+            return \Illuminate\Support\Str::after($desc, '": ');
+        }
+
+        return $desc;
+    }
 }
 
 
